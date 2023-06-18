@@ -11,10 +11,10 @@ def train(model, optimizer, scheduler, dataloader):
 
     # transforms for training
     transforms = BatchTransform.Compose([
-        BatchTransform.RandomRotate([0.1, 0.1, 0.1]),
+        BatchTransform.RandomRotate([1, 1, 1]),
         BatchTransform.RandomScale([0.9, 1.1]),
-        BatchTransform.RandomShift([0.05, 0.05, 0.05]),
-        BatchTransform.RandomJitter(0.002, 0.005)
+        BatchTransform.RandomShift([0.2, 0.2, 0.2]),
+        BatchTransform.RandomJitter(0.003, 0.01)
     ])
     
     loss_acc = 0.
@@ -30,13 +30,16 @@ def train(model, optimizer, scheduler, dataloader):
         
         # sim[y == -1, :] *= 0 # mask belonging nowhere
         dist = torch.cdist(sim, sim)
+        rdist = torch.cdist(label, label)
         same = y.unsqueeze(1) == y.unsqueeze(2)
 
         loss = torch.scalar_tensor(0.).to(device)
         # low-rank loss
         loss += (same.float() - torch.einsum('bir,bjr->bij', label, label)).square().mean()
-        # similarity loss
-        loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), 0.)).mean()
+        # similarity loss (20 \sim sqrt(512) - it's near-maximum value of the distance of sim vectors)
+        loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), min=0.)).mean()
+        # similarity loss for reducted similarity
+        loss += ((rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.)).mean()
 
         loss_acc += float(loss)
 
@@ -64,13 +67,16 @@ def eval(model, dataloader):
 
         # sim[y == -1, :] *= 0 # mask belonging nowhere
         dist = torch.cdist(sim, sim)
+        rdist = torch.cdist(label, label)
         same = y.unsqueeze(1) == y.unsqueeze(2)
 
         loss = torch.scalar_tensor(0.).to(device)
         # low-rank loss
         loss += (same.float() - torch.einsum('bir,bjr->bij', label, label)).square().mean()
-        # similarity loss
-        loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), 0.)).mean()
+        # similarity loss (20 \sim sqrt(512) - it's near-maximum value of the distance of sim vectors)
+        loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), min=0.)).mean()
+        # similarity loss for reducted similarity
+        loss += ((rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.)).mean()
 
         loss_acc += float(loss)
 
@@ -93,8 +99,6 @@ def draw(model, dataloader):
     sim, label = model(x, parts_count)
 
     same = y.unsqueeze(1) == y.unsqueeze(2)
-    print(parts_count[0])
-    print(same[0])
 
     # get arbitrarily sample and apply inverse of normalize
     x = (x[0] * x_std + x_mean).cpu()
@@ -104,8 +108,11 @@ def draw(model, dataloader):
     sim = sim[0].cpu()
     label = label[0].cpu()
 
+    print(parts_count[0])
+    print(same[0])
     print(sim)
     print(torch.einsum('ir,jr->ij', label, label))
+    print(label)
     
     # # make adjacency matrix "hard"
     # sim[sim < 1] = 0

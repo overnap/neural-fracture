@@ -5,9 +5,9 @@ import trimesh
 # Modified version of:
 # https://github.com/yanx27/Pointnet_Pointnet2_pytorch/blob/master/models/pointnet2_utils.py
 def pc_normalize(pc):
-    centroid = torch.mean(pc, dim=0).detach()
+    centroid = torch.mean(pc, dim=1, keepdim=True).detach()
     pc = pc - centroid
-    m = (pc ** 2).sum(dim=1).sqrt().max().detach()
+    m = (pc ** 2).sum(dim=2, keepdim=True).sqrt().max().detach()
     pc = pc / m
     return pc, centroid, m
 

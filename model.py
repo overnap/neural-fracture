@@ -45,17 +45,16 @@ class Model(nn.Module):
         l0_points = self.fp1(l0_xyz, l1_xyz, None, l1_points)
 
         x = l0_points
-        x = x / (torch.norm(x, dim=1, keepdim=True) + 1e-5) # normalize feature vector
-        x = torch.einsum('bci,bcj->bij', x, x) # inner product; get pointwise similarity
-        x = (x + 1.) / 2. # normalize similarity value to [0, 1]
+        x = torch.einsum('bci,bcj->bij', x, x) # inner product; get pointwise unnormalized similarity (-inf, inf)
+        x = torch.sigmoid(x) # map inner product (unnormalized similarity) to probability (0, 1)
         sim = x.clone() # original similarity matrix
 
         x = self.reduction(x)
         mask = torch.zeros((x.shape[0], 101)).to(self.device)
         mask[(torch.arange(x.shape[0]), parts_count)] = 1
         mask = (1 - mask.cumsum(dim=1)[:, :x.shape[1]]).repeat(x.shape[2], 1, 1).permute(1, 2, 0)
-        x = (x * mask).permute(0, 2, 1)
-        x = nn.functional.softmax(x, dim=-1) # reducted similarity matrix, same as label
+        x = (torch.exp(x) * mask).permute(0, 2, 1) # masking parts
+        x = x / x.sum(dim=-1, keepdim=True) # reducted similarity matrix, same as label probability
 
         return sim, x
 
