@@ -1,7 +1,6 @@
 from tqdm import tqdm
-from utils import pc_normalize, BatchTransform
+from utils import normalize, BatchTransform
 import numpy as np
-import open3d as o3d
 import torch
 
 
@@ -11,10 +10,10 @@ def train(model, optimizer, scheduler, dataloader):
 
     # transforms for training
     transforms = BatchTransform.Compose([
+        BatchTransform.RandomJitter(0.003, 0.01),
+        normalize,
         BatchTransform.RandomRotate([1, 1, 1]),
         BatchTransform.RandomScale([0.9, 1.1]),
-        BatchTransform.RandomShift([0.2, 0.2, 0.2]),
-        BatchTransform.RandomJitter(0.003, 0.01)
     ])
     
     loss_acc = 0.
@@ -24,11 +23,9 @@ def train(model, optimizer, scheduler, dataloader):
         y = y.to(device)
         parts_count = y.max(dim=1)[0] + 1
 
-        x, _, _ = pc_normalize(x)
         x = transforms(x)
         sim, label = model(x, parts_count)
-        
-        # sim[y == -1, :] *= 0 # mask belonging nowhere
+
         dist = torch.cdist(sim, sim)
         rdist = torch.cdist(label, label)
         same = y.unsqueeze(1) == y.unsqueeze(2)
@@ -36,7 +33,7 @@ def train(model, optimizer, scheduler, dataloader):
         loss = torch.scalar_tensor(0.).to(device)
         # low-rank loss
         loss += (same.float() - torch.einsum('bir,bjr->bij', label, label)).square().mean()
-        # similarity loss (20 \sim sqrt(512) - it's near-maximum value of the distance of sim vectors)
+        # similarity loss (32 = sqrt(1024) - it's near-maximum value of the distance of sim vectors)
         loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), min=0.)).mean()
         # similarity loss for reducted similarity
         loss += ((rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.)).mean()
@@ -62,10 +59,9 @@ def eval(model, dataloader):
         y = y.to(device)
         parts_count = y.max(dim=1)[0] + 1
 
-        x, _, _ = pc_normalize(x)
+        x = normalize(x)
         sim, label = model(x, parts_count)
 
-        # sim[y == -1, :] *= 0 # mask belonging nowhere
         dist = torch.cdist(sim, sim)
         rdist = torch.cdist(label, label)
         same = y.unsqueeze(1) == y.unsqueeze(2)
@@ -73,7 +69,7 @@ def eval(model, dataloader):
         loss = torch.scalar_tensor(0.).to(device)
         # low-rank loss
         loss += (same.float() - torch.einsum('bir,bjr->bij', label, label)).square().mean()
-        # similarity loss (20 \sim sqrt(512) - it's near-maximum value of the distance of sim vectors)
+        # similarity loss (32 = sqrt(1024) - it's near-maximum value of the distance of sim vectors)
         loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), min=0.)).mean()
         # similarity loss for reducted similarity
         loss += ((rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.)).mean()
@@ -95,63 +91,23 @@ def draw(model, dataloader):
     y = y.to(device)
     parts_count = y.max(dim=1)[0] + 1
 
-    x, x_mean, x_std = pc_normalize(x)
+    x = normalize(x)
     sim, label = model(x, parts_count)
 
     same = y.unsqueeze(1) == y.unsqueeze(2)
 
-    # get arbitrarily sample and apply inverse of normalize
-    x = (x[0] * x_std + x_mean).cpu()
-    y = y[0]
-    y[y == -1] = y.max() + 1
-    y = y.cpu()
-    sim = sim[0].cpu()
-    label = label[0].cpu()
-
     print(parts_count[0])
     print(same[0])
-    print(sim)
-    print(torch.einsum('ir,jr->ij', label, label))
-    print(label)
-    
-    # # make adjacency matrix "hard"
-    # sim[sim < 1] = 0
-    # sim[sim > 0] = 1
-    # sim = sim.long()
-
-    # # assign class number for arbitrarily order
-    # pred = torch.ones(dataloader.dataset.npoints) * -1
-    # for i in range(len(pred)):
-    #     if pred[i] == -1:
-    #         label = pred.max() + 1
-    #         for j in range(len(pred)):
-    #             if sim[i, j] == 1:
-    #                 pred[j] = label
-    
-    # # interpolate Red to Blue
-    # color = (pred/pred.max()).unsqueeze(1)
-    # color = (1-color) * torch.tensor([237, 28, 36]) + color * torch.tensor([23, 23, 244])
-
-    # pcd = o3d.geometry.PointCloud()
-    # pcd.points = o3d.utility.Vector3dVector(x.numpy())
-    # pcd.colors = o3d.utility.Vector3dVector(color.numpy())
-
-    # o3d.visualization.draw_geometries([pcd])
+    print(sim[0])
+    print(torch.einsum('ir,jr->ij', label[0], label[0]))
+    print(label[0])
 
 
 if __name__ == '__main__':
     from model import Model
     model = Model('cpu')
-    x = torch.rand(6, 512, 3)
-    y = torch.randint(16, size=(6, 512))
+    x = torch.rand(6, 1024, 3)
+    y = torch.randint(16, size=(6, 1024))
     sim, sim_reduct = model(x, torch.arange(6))
-
-    sim[y == -1, :] *= 0
-    dist = torch.cdist(sim, sim)
-    same = y.unsqueeze(1) == y.unsqueeze(2)
-
-    loss_reduction = ((sim - sim_reduct) ** 2).sum()
-    loss_similarity = (dist * same).sum() - torch.min(dist * ~same, torch.ones(dist.shape) * 1.).sum()
-    loss = loss_reduction + loss_similarity
-
-    print(loss)
+    print(sim)
+    print(sim_reduct)

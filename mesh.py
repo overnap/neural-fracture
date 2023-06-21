@@ -1,6 +1,7 @@
 import pygalmesh
 import meshio
 import numpy as np
+import os
 
 class Mesh:
     def __init__(self):
@@ -19,7 +20,7 @@ class Mesh:
             obj_file_name,
             max_radius_surface_delaunay_ball=1.0,
             max_facet_distance=0.3,
-            max_circumradius_edge_ratio=3.0,
+            max_circumradius_edge_ratio=1.8,
             verbose=False,
             reorient=True
         )
@@ -74,6 +75,7 @@ class Mesh:
 
         return tetrahedra
     
+        
     def mergemesh(self, group_id=None):
         '''
         같은 group(class)인지 체크해서 remove list 작성
@@ -81,18 +83,18 @@ class Mesh:
         '''
         self.tetra_idx = self.maketetra_idx()
 
-        if group_id is None:         # group(class) 정보는 받아올 예정 (없으면 임시로 같은걸로 설정)
+        if group_id is None:  # group(class) 정보는 받아올 예정 (없으면 임시로 같은걸로 설정)
             group_id = [0] * len(self.tetra_idx)
-        
+
         group_id = np.array(group_id)
         num_group = group_id.max() + 1
-        
+
         for num in range(num_group):
             piece = np.where(group_id == num)[0]
             if piece.shape[0] == 0:
                 continue
-            
             tmp_list = [self.tetra_idx[i] for i in piece]
+            cnnt_list = list(range(len(piece)))
             rows = len(piece)
             cols = len(tmp_list[0])
             rm_list = [[False for _ in range(cols)] for _ in range(rows)]
@@ -100,7 +102,7 @@ class Mesh:
             # merge...
             for i in range(len(piece)):
                 tetra_A = self.tetra_idx[piece[i]]
-                for j in range(i+1, len(piece)):
+                for j in range(i + 1, len(piece)):
                     tetra_B = tmp_list[j]
                     for n in range(len(tetra_A)):
                         for m in range(len(tetra_B)):
@@ -108,17 +110,40 @@ class Mesh:
                             face_B = tetra_B[m]
                             shared_vertices = set(face_A) & set(face_B)
                             if len(shared_vertices) >= 3:
+                                cnntA = self.find_root(cnnt_list, i)
+                                cnntB = self.find_root(cnnt_list, j)
+                                if cnntA < cnntB:
+                                    cnnt_list[cnntB] = cnntA
+                                else:
+                                    cnnt_list[cnntA] = cnntB
+
                                 rm_list[i][n] = True
                                 rm_list[j][m] = True
-            result = []
-            for tetra, check_rm in zip(tmp_list, rm_list):
-                for face, check in zip(tetra, check_rm):
-                    if not check:
-                        result.append(face)
-                        t = [self.vtxs[idx] for idx in face]
 
-            faces = result
-            self.exportmesh(num, result)
+            result_cnnt = []
+            for i in range(len(cnnt_list)):
+                result_cnnt.append(self.find_root(cnnt_list, i))
+
+            # ----------이제 connect_list에서의 그룹별로 tmp_list와 rm_list 대조-----------#
+
+            num_mini_group = set(result_cnnt)
+            result_cnnt = np.array(result_cnnt)
+
+            for parts in num_mini_group:
+                mini_piece = np.where(result_cnnt == parts)[0]
+                mini_rm_list = []
+                for p in mini_piece:
+                    mini_rm_list.append(rm_list[p])
+                mini_tmp_list = [tmp_list[i] for i in mini_piece]
+                result = []
+                for tetra, check_rm in zip(mini_tmp_list, mini_rm_list):
+                    for face, check in zip(tetra, check_rm):
+                        if not check:
+                            result.append(face)
+                
+                faces = result
+                if len(faces) > 0:
+                    self.exportmesh(str(num) + str(parts), faces)
 
 
     def exportmesh(self, idx, faces):
@@ -126,5 +151,12 @@ class Mesh:
         조각들을 obj로 나눠서 export (only surface)
         '''
         output = meshio.Mesh(points=self.vtxs, cells=[("triangle", faces)])
-        meshio.write(f"result{idx}.obj", output, file_format="obj")      #성공
+        if not os.path.exists('./result/'):
+            os.mkdir('./result')
+        meshio.write(f"./result/result{idx}.obj", output, file_format="obj")      #성공
     
+
+    def find_root(self, parent, x):
+        if parent[x] != x:
+            parent[x] = self.find_root(parent, parent[x])
+        return parent[x]

@@ -2,14 +2,12 @@ import torch
 import trimesh
 
 
-# Modified version of:
-# https://github.com/yanx27/Pointnet_Pointnet2_pytorch/blob/master/models/pointnet2_utils.py
-def pc_normalize(pc):
-    centroid = torch.mean(pc, dim=1, keepdim=True).detach()
-    pc = pc - centroid
-    m = (pc ** 2).sum(dim=2, keepdim=True).sqrt().max().detach()
-    pc = pc / m
-    return pc, centroid, m
+def normalize(pc):
+    mean = pc.mean(dim=1, keepdim=True).detach()
+    pc = pc - mean
+    std = ((pc ** 2).sum(dim=2, keepdim=True) + 1e-5).sqrt().max(dim=1, keepdim=True)[0].detach()
+    pc = pc / std
+    return pc
 
 # load the mesh and point cloud from it
 def mesh_to_pcd(mesh_path, sample_grid_size=0.025):
@@ -60,7 +58,7 @@ class BatchTransform:
             R_y = torch.tensor([[cos_y, 0, sin_y], [0, 1, 0], [-sin_y, 0, cos_y]])
             R_z = torch.tensor([[cos_z, -sin_z, 0], [sin_z, cos_z, 0], [0, 0, 1]])
             R = (R_z @ R_y @ R_x).to(x.device)
-            return torch.einsum('bij,jk->bik', x, R.transpose(0, 1))
+            return torch.einsum('bni,ki->bnk', x, R)
 
     class RandomShift(object):
         def __init__(self, shift=[0.2, 0.2, 0]):
