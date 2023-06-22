@@ -45,7 +45,7 @@ class Model(nn.Module):
         # parts count embedding
         parts_embedding = parts_count.float().unsqueeze(1).unsqueeze(1).repeat(1, 1, l0_points.shape[2])
         l0_points = self.fp1(l0_xyz, l1_xyz, torch.cat((l0_points, parts_embedding), dim=1), l1_points)
-        # l0_points = self.fp1(l0_xyz, l1_xyz, None, l1_points)
+        
         x = l0_points
         x = torch.einsum('bci,bcj->bij', x, x) # inner product; get pointwise unnormalized similarity (-inf, inf)
         x = torch.sigmoid(x) # map inner product (unnormalized similarity) to probability (0, 1)

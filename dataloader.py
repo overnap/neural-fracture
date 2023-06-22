@@ -30,15 +30,6 @@ class FracturedDataset(Dataset):
                 if self.x[-1].shape[0] != output[-1].shape[0]:
                     print(out)
             self.y.append(output)
-
-        # # compensate for data with fewer pieces than `per_pcd`
-        # for i, x in enumerate(self.y):
-        #     if len(x) < self.per_pcd:
-        #         sample = np.random.choice(len(x), self.per_pcd - len(x), replace=True)
-        #         for j in sample:
-        #             self.y[i].append(x[j])
-        #     elif len(x) > self.per_pcd:
-        #         self.y[i] = self.y[i][:self.per_pcd]
         
         # split train and test sample if split info have not made
         if not os.path.exists(root + '/train.pt'):
