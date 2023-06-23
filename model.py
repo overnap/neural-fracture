@@ -28,7 +28,7 @@ class Model(nn.Module):
                                 nn.Conv1d(256, 128, 1),
                                 nn.BatchNorm1d(128),
                                 nn.ReLU(),
-                                nn.Conv1d(128, 64, 1)).to(device)
+                                nn.Conv1d(128, 12, 1)).to(device)
 
     def forward(self, xyz, parts_count):
         xyz = xyz.permute(0, 2, 1)
