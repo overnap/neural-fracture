@@ -5,7 +5,7 @@ import torch
 from mesh import Mesh
 from sklearn.cluster import KMeans
 from model import Model
-from utils import pc_normalize
+from utils import normalize
 
 
 INPUT_PARTS_COUNT = 12
@@ -20,7 +20,7 @@ kmeans = KMeans(n_clusters=512, max_iter=1000).fit(coms)
 model = Model()
 model.load_state_dict(torch.load('./model_param_for_test.pt', map_location=torch.device('cpu')))
 
-x, _, _ = pc_normalize(torch.tensor(kmeans.cluster_centers_).float().unsqueeze(0))
+x = normalize(torch.tensor(kmeans.cluster_centers_).float().unsqueeze(0))
 sim, result = model(x, torch.tensor([INPUT_PARTS_COUNT]))
 
 sim = sim[0]
