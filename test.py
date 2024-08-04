@@ -17,6 +17,8 @@ print(coms.shape)
 
 kmeans = KMeans(n_clusters=512, max_iter=1000).fit(coms)
 
+print(normalize(torch.tensor(kmeans.cluster_centers_).float().unsqueeze(0)).shape)
+
 model = Model()
 model.load_state_dict(torch.load('./model_param_for_test.pt', map_location=torch.device('cpu')))
 

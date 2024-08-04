@@ -18,14 +18,14 @@ class Mesh:
         '''
         mesh = pygalmesh.generate_volume_mesh_from_surface_mesh(
             obj_file_name,
-            min_facet_angle=25,
-            max_radius_surface_delaunay_ball=0.6,
-            max_facet_distance=0.01,
-            max_circumradius_edge_ratio=4,
-            max_cell_circumradius=0.8,
-            # max_radius_surface_delaunay_ball=1.0,
-            # max_facet_distance=0.3,
-            # max_circumradius_edge_ratio=1.8,
+            # min_facet_angle=25,
+            # max_radius_surface_delaunay_ball=0.6,
+            # max_facet_distance=0.01,
+            # max_circumradius_edge_ratio=4,
+            # max_cell_circumradius=0.8,
+            max_radius_surface_delaunay_ball=1.0,
+            max_facet_distance=0.3,
+            max_circumradius_edge_ratio=1.8,
             verbose=False,
             reorient=True,
         )
