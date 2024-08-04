@@ -9,16 +9,18 @@ def train(model, optimizer, scheduler, dataloader):
     device = model.device
 
     # transforms for training
-    transforms = BatchTransform.Compose([
-        BatchTransform.RandomJitter(0.003, 0.01),
-        normalize,
-        BatchTransform.RandomRotate([1, 1, 1]),
-        BatchTransform.RandomScale([0.9, 1.1]),
-    ])
-    
-    loss_acc = 0.
+    transforms = BatchTransform.Compose(
+        [
+            BatchTransform.RandomJitter(0.003, 0.01),
+            normalize,
+            BatchTransform.RandomRotate([1, 1, 1]),
+            BatchTransform.RandomScale([0.9, 1.1]),
+        ]
+    )
 
-    for x, y in tqdm(dataloader, leave=False, desc='train set'):
+    loss_acc = 0.0
+
+    for x, y in tqdm(dataloader, leave=False, desc="train set"):
         x = x.to(device)
         y = y.to(device)
         parts_count = y.max(dim=1)[0] + 1
@@ -30,13 +32,19 @@ def train(model, optimizer, scheduler, dataloader):
         rdist = torch.cdist(label, label)
         same = y.unsqueeze(1) == y.unsqueeze(2)
 
-        loss = torch.scalar_tensor(0.).to(device)
+        loss = torch.scalar_tensor(0.0).to(device)
         # low-rank loss
-        loss += (same.float() - torch.einsum('bir,bjr->bij', label, label)).square().mean()
+        loss += (
+            (same.float() - torch.einsum("bir,bjr->bij", label, label)).square().mean()
+        )
         # similarity loss (32 = sqrt(1024) - it's near-maximum value of the distance of sim vectors)
-        loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), min=0.)).mean()
+        loss += (
+            (dist * same) + torch.clip((~same).float() * 20.0 - (dist * ~same), min=0.0)
+        ).mean()
         # similarity loss for reducted similarity
-        loss += ((rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.)).mean()
+        loss += (
+            (rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.0)
+        ).mean()
 
         loss_acc += float(loss)
 
@@ -52,9 +60,9 @@ def eval(model, dataloader):
     model.eval()
     device = model.device
 
-    loss_acc = 0.
-    
-    for x, y in tqdm(dataloader, leave=False, desc='eval set'):
+    loss_acc = 0.0
+
+    for x, y in tqdm(dataloader, leave=False, desc="eval set"):
         x = x.to(device)
         y = y.to(device)
         parts_count = y.max(dim=1)[0] + 1
@@ -66,13 +74,19 @@ def eval(model, dataloader):
         rdist = torch.cdist(label, label)
         same = y.unsqueeze(1) == y.unsqueeze(2)
 
-        loss = torch.scalar_tensor(0.).to(device)
+        loss = torch.scalar_tensor(0.0).to(device)
         # low-rank loss
-        loss += (same.float() - torch.einsum('bir,bjr->bij', label, label)).square().mean()
+        loss += (
+            (same.float() - torch.einsum("bir,bjr->bij", label, label)).square().mean()
+        )
         # similarity loss (32 = sqrt(1024) - it's near-maximum value of the distance of sim vectors)
-        loss += ((dist * same) + torch.clip((~same).float() * 20. - (dist * ~same), min=0.)).mean()
+        loss += (
+            (dist * same) + torch.clip((~same).float() * 20.0 - (dist * ~same), min=0.0)
+        ).mean()
         # similarity loss for reducted similarity
-        loss += ((rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.)).mean()
+        loss += (
+            (rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.0)
+        ).mean()
 
         loss_acc += float(loss)
 
@@ -99,15 +113,16 @@ def draw(model, dataloader):
     print(parts_count[0])
     print(same[0])
     print(sim[0])
-    print(torch.einsum('ir,jr->ij', label[0], label[0]))
+    print(torch.einsum("ir,jr->ij", label[0], label[0]))
     print(label[0])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from model import Model
-    model = Model('cpu')
-    x = torch.rand(6, 1024, 3)
-    y = torch.randint(16, size=(6, 1024))
+
+    model = Model("cpu")
+    x = torch.rand(6, 512, 3)
+    y = torch.randint(16, size=(6, 512))
     sim, sim_reduct = model(x, torch.arange(6))
     print(sim)
     print(sim_reduct)

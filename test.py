@@ -11,7 +11,7 @@ from utils import normalize
 INPUT_PARTS_COUNT = 12
 
 mesh = Mesh()
-mesh.surftovol('teddy.obj')
+mesh.surftovol("teddy.obj")
 coms = mesh.getCOM()
 print(coms.shape)
 
@@ -20,7 +20,9 @@ kmeans = KMeans(n_clusters=512, max_iter=1000).fit(coms)
 print(normalize(torch.tensor(kmeans.cluster_centers_).float().unsqueeze(0)).shape)
 
 model = Model()
-model.load_state_dict(torch.load('./model_param_for_test.pt', map_location=torch.device('cpu')))
+model.load_state_dict(
+    torch.load("./model_param_for_test.pt", map_location=torch.device("cpu"))
+)
 
 x = normalize(torch.tensor(kmeans.cluster_centers_).float().unsqueeze(0))
 sim, result = model(x, torch.tensor([INPUT_PARTS_COUNT]))

@@ -5,15 +5,21 @@ import trimesh
 def normalize(pc):
     mean = pc.mean(dim=1, keepdim=True).detach()
     pc = pc - mean
-    std = ((pc ** 2).sum(dim=2, keepdim=True) + 1e-5).sqrt().max(dim=1, keepdim=True)[0].detach()
+    std = (
+        ((pc**2).sum(dim=2, keepdim=True) + 1e-5)
+        .sqrt()
+        .max(dim=1, keepdim=True)[0]
+        .detach()
+    )
     pc = pc / std
     return pc
+
 
 # load the mesh and point cloud from it
 def mesh_to_pcd(mesh_path, sample_grid_size=0.025):
     mesh = trimesh.load(mesh_path)
     points = mesh.bounding_box.sample_grid(step=sample_grid_size)
-    
+
     # only the points within the mesh are filtered
     points = points[mesh.contains(points)]
 
@@ -22,6 +28,7 @@ def mesh_to_pcd(mesh_path, sample_grid_size=0.025):
 
 # Modified version of:
 # https://github.com/POSTECH-CVLab/point-transformer/blob/10d43ab5210fc93ffa15886f2a4c6460cc308780/util/transform.py#L49
+
 
 class BatchTransform:
     class Compose(object):
@@ -39,8 +46,10 @@ class BatchTransform:
             self.clip = clip
 
         def __call__(self, x):
-            assert (self.clip > 0)
-            jitter = torch.clip(self.sigma * torch.randn_like(x), -1 * self.clip, self.clip).to(x.device)
+            assert self.clip > 0
+            jitter = torch.clip(
+                self.sigma * torch.randn_like(x), -1 * self.clip, self.clip
+            ).to(x.device)
             return x + jitter
 
     class RandomRotate(object):
@@ -58,24 +67,27 @@ class BatchTransform:
             R_y = torch.tensor([[cos_y, 0, sin_y], [0, 1, 0], [-sin_y, 0, cos_y]])
             R_z = torch.tensor([[cos_z, -sin_z, 0], [sin_z, cos_z, 0], [0, 0, 1]])
             R = (R_z @ R_y @ R_x).to(x.device)
-            return torch.einsum('bni,ki->bnk', x, R)
+            return torch.einsum("bni,ki->bnk", x, R)
 
     class RandomShift(object):
         def __init__(self, shift=[0.2, 0.2, 0]):
             self.shift = shift
 
         def __call__(self, x):
-            shift_x = torch.rand(1) * self.shift[0]*2 - self.shift[0]
-            shift_y = torch.rand(1) * self.shift[1]*2 - self.shift[1]
-            shift_z = torch.rand(1) * self.shift[2]*2 - self.shift[2]
+            shift_x = torch.rand(1) * self.shift[0] * 2 - self.shift[0]
+            shift_y = torch.rand(1) * self.shift[1] * 2 - self.shift[1]
+            shift_z = torch.rand(1) * self.shift[2] * 2 - self.shift[2]
             return x + torch.tensor([shift_x, shift_y, shift_z]).to(x.device)
-        
+
     class RandomScale(object):
         def __init__(self, scale=[0.9, 1.1], anisotropic=False):
             self.scale = scale
             self.anisotropic = anisotropic
 
         def __call__(self, x):
-            scale = (torch.rand((x.shape[0], 1, 3 if self.anisotropic else 1))
-                    * (self.scale[1] - self.scale[0]) + self.scale[0]).to(x.device)
+            scale = (
+                torch.rand((x.shape[0], 1, 3 if self.anisotropic else 1))
+                * (self.scale[1] - self.scale[0])
+                + self.scale[0]
+            ).to(x.device)
             return x * scale

@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
-from pointnet2_utils import PointNetSetAbstraction, PointNetSetAbstractionMsg, PointNetFeaturePropagation
+from pointnet2_utils import (
+    PointNetSetAbstraction,
+    PointNetSetAbstractionMsg,
+    PointNetFeaturePropagation,
+)
 
 
 class MLPBlock(nn.Module):
@@ -10,8 +14,8 @@ class MLPBlock(nn.Module):
         self.conv = nn.Conv1d(in_channel, out_channel, 1)
         self.bn = nn.BatchNorm1d(out_channel)
         self.act = activation
-        self.residual = (in_channel == out_channel)
-    
+        self.residual = in_channel == out_channel
+
     def forward(self, input):
         x = self.conv(input)
         x = self.bn(x)
@@ -55,18 +59,18 @@ class AttentionBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, device='cpu'):
+    def __init__(self, device="cpu"):
         super(Model, self).__init__()
-        
+
         self.device = device
 
         self.first = torch.nn.Sequential(
-            MLPBlock(3+1, 32),
+            MLPBlock(3 + 1, 32),
             AttentionBlock(32, 12),
             MLPBlock(32, 32),
             AttentionBlock(32, 12),
         )
-        
+
         self.second = torch.nn.Sequential(
             MLPBlock(32, 64),
             AttentionBlock(64, 8),
@@ -84,21 +88,24 @@ class Model(nn.Module):
             MLPBlock(128, 128),
             AttentionBlock(128, 4),
         )
-        
+
         self.reduction = nn.Sequential(
-                                MLPBlock(512+1, 256),
-                                AttentionBlock(256),
-                                MLPBlock(256, 128),
-                                AttentionBlock(128, 4),
-                                MLPBlock(128, 12),
-                                AttentionBlock(12, 8))
+            MLPBlock(512 + 1, 256),
+            AttentionBlock(256),
+            MLPBlock(256, 128),
+            AttentionBlock(128, 4),
+            MLPBlock(128, 12),
+            AttentionBlock(12, 8),
+        )
 
     def forward(self, input, parts_count):
         x = input.permute(0, 2, 1)
 
         # parts count embedding (on data dimension)
-        embed1 = torch.normal(torch.ones((x.shape[0], 1, x.shape[2])).to(self.device)
-                              * parts_count.float().unsqueeze(1).unsqueeze(1))
+        embed1 = torch.normal(
+            torch.ones((x.shape[0], 1, x.shape[2])).to(self.device)
+            * parts_count.float().unsqueeze(1).unsqueeze(1)
+        )
         x = torch.cat((x, embed1), dim=1)
 
         # get similarity matrix
@@ -106,15 +113,17 @@ class Model(nn.Module):
         x = self.second(x)
         x = self.last(x)
 
-        x = torch.einsum('bci,bcj->bij', x, x)
+        x = torch.einsum("bci,bcj->bij", x, x)
         x = torch.sigmoid(x)
 
         # save similarity matrix
         sim = x.clone()
 
         # parts count embedding (on matrix dimension)
-        embed2 = torch.normal(torch.ones((x.shape[0], 1, x.shape[2])).to(self.device)
-                              * parts_count.float().unsqueeze(1).unsqueeze(1))
+        embed2 = torch.normal(
+            torch.ones((x.shape[0], 1, x.shape[2])).to(self.device)
+            * parts_count.float().unsqueeze(1).unsqueeze(1)
+        )
         x = torch.cat((sim, embed2), dim=1)
 
         # matrix reduction to group
@@ -124,8 +133,9 @@ class Model(nn.Module):
         return sim, x
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import torch
-    model = Model(device='cuda').to('cuda')
-    xyz = torch.rand(256, 512, 3).to('cuda')
-    print(model(xyz, torch.randint(1, 12, (256,)).to('cuda')))
+
+    model = Model(device="cuda").to("cuda")
+    xyz = torch.rand(256, 512, 3).to("cuda")
+    print(model(xyz, torch.randint(1, 12, (256,)).to("cuda")))

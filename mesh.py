@@ -3,6 +3,7 @@ import meshio
 import numpy as np
 import os
 
+
 class Mesh:
     def __init__(self):
         self.vtxs = []
@@ -10,12 +11,12 @@ class Mesh:
         self.tetra_idx = []
 
     def surftovol(self, obj_file_name):
-        '''surface to volume -> get COM
-        generate_volume_mesh_from_surface_mesh에서 
+        """surface to volume -> get COM
+        generate_volume_mesh_from_surface_mesh에서
             max_radius_surface_delaunay_ball: 표면에서 Delaunay ball의 최대 반지름을 지정
             max_facet_distance: 생성된 면의 최대 거리 제어
         조정해서 쪼개는 정도 설정하기
-        '''
+        """
         mesh = pygalmesh.generate_volume_mesh_from_surface_mesh(
             obj_file_name,
             # min_facet_angle=25,
@@ -32,10 +33,9 @@ class Mesh:
 
         self.vtxs = mesh.points
         self.cells = mesh.get_cells_type("tetra")
-    
+
     def getCOM(self):
-        '''get center of mass for every tetrahedra
-        '''
+        """get center of mass for every tetrahedra"""
         COM = np.zeros((len(self.cells), 3))
         for i, cell in enumerate(self.cells):
             vertices = self.vtxs[cell]
@@ -43,13 +43,13 @@ class Mesh:
             COM[i] = com
 
         return COM
-    
+
     def maketetra_idx(self):
-        '''make tetra
+        """make tetra
         cell로 구해진 사면체의 정점 정보를 이용해 combination으로 face 정보 구성
         index version) face 정보를 작성할 때 정점말고 index로 작성한 버전
                        (이후 merge에서 face 비교를 간단히 하기 위해)
-        '''
+        """
         tetra_idx = []
         combinations = [(2, 1, 0), (1, 3, 0), (3, 2, 0), (2, 3, 1)]
 
@@ -63,15 +63,20 @@ class Mesh:
         return tetra_idx
 
     def maketetra(self):
-        '''
+        """
         cell로 구해진 사면체의 정점 정보를 이용해 combination으로 face 정보 구성
         필요한 경우에만 쓰도록 분리, index version에서 같이 구해도 됨
-        '''
+        """
         tetrahedra = []
         combinations = [(2, 1, 0), (1, 3, 0), (3, 2, 0), (2, 3, 1)]
 
         for cell in self.cells:
-            tmp_poly = [self.vtxs[cell[0]], self.vtxs[cell[1]], self.vtxs[cell[2]], self.vtxs[cell[3]]]
+            tmp_poly = [
+                self.vtxs[cell[0]],
+                self.vtxs[cell[1]],
+                self.vtxs[cell[2]],
+                self.vtxs[cell[3]],
+            ]
             faces = []
             for comb in combinations:
                 face = [tmp_poly[idx] for idx in comb]
@@ -79,16 +84,17 @@ class Mesh:
             tetrahedra.append(faces)
 
         return tetrahedra
-    
-        
+
     def mergemesh(self, group_id=None):
-        '''
+        """
         같은 group(class)인지 체크해서 remove list 작성
         cells(face) 정보에서 값을 지워줘야 할 것 (result에 저장)
-        '''
+        """
         self.tetra_idx = self.maketetra_idx()
 
-        if group_id is None:  # group(class) 정보는 받아올 예정 (없으면 임시로 같은걸로 설정)
+        if (
+            group_id is None
+        ):  # group(class) 정보는 받아올 예정 (없으면 임시로 같은걸로 설정)
             group_id = [0] * len(self.tetra_idx)
 
         group_id = np.array(group_id)
@@ -145,21 +151,19 @@ class Mesh:
                     for face, check in zip(tetra, check_rm):
                         if not check:
                             result.append(face)
-                
+
                 faces = result
                 if len(faces) > 0:
                     self.exportmesh(str(num) + str(parts), faces)
 
-
     def exportmesh(self, idx, faces):
-        '''
+        """
         조각들을 obj로 나눠서 export (only surface)
-        '''
+        """
         output = meshio.Mesh(points=self.vtxs, cells=[("triangle", faces)])
-        if not os.path.exists('./result/'):
-            os.mkdir('./result')
-        meshio.write(f"./result/result{idx}.obj", output, file_format="obj")      #성공
-    
+        if not os.path.exists("./result/"):
+            os.mkdir("./result")
+        meshio.write(f"./result/result{idx}.obj", output, file_format="obj")  # 성공
 
     def find_root(self, parent, x):
         if parent[x] != x:
