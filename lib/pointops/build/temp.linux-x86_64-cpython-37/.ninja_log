@@ -1,0 +1,14 @@
+# ninja log v5
+1	9566	1722850081812584008	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/grouping/grouping_cuda.o	dffd68a491f9d7f3
+0	9590	1722850081832584002	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/aggregation/aggregation_cuda.o	22526356b5bd5b32
+2	9613	1722850081852583996	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/interpolation/interpolation_cuda.o	85e431b1e80f9af1
+4	9761	1722850082002584218	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/knnquery/knnquery_cuda.o	cc0db71ce523ae88
+5	9798	1722850082042584311	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/sampling/sampling_cuda.o	25596b2d30621560
+6	10558	1722850082802586078	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/subtraction/subtraction_cuda.o	d5370cf9bc3eb94e
+3	23097	1722850095342602240	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/interpolation/interpolation_cuda_kernel.o	357e2fa906b850fb
+7	23123	1722850095362602262	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/subtraction/subtraction_cuda_kernel.o	e06a4a65ba652798
+1	23154	1722850095392602295	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/aggregation/aggregation_cuda_kernel.o	7a2f11de6588c106
+4	23165	1722850095412602317	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/knnquery/knnquery_cuda_kernel.o	635ac52359f3a288
+2	23286	1722850095532602450	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/grouping/grouping_cuda_kernel.o	8ccd0f8b9caec7b5
+6	23302	1722850095542602461	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/sampling/sampling_cuda_kernel.o	b4c2a911e55bf47f
+5	26709	1722850098942605072	/home/percv_d2/neural-fracture/point-transformer/lib/pointops/build/temp.linux-x86_64-cpython-37/src/pointops_api.o	3fa6979ddb0214ee

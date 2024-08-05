@@ -21,7 +21,7 @@ def main():
         dataset=FracturedDataset(),
         batch_size=64,
         num_workers=8,
-        drop_last=True,
+        drop_last=False,
         shuffle=True,
         pin_memory=True,
     )
@@ -29,8 +29,8 @@ def main():
         dataset=FracturedDataset(split="test"),
         batch_size=64,
         num_workers=8,
-        drop_last=True,
-        shuffle=True,
+        drop_last=False,
+        shuffle=False,
         pin_memory=True,
     )
 
