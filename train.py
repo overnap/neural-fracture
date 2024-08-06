@@ -4,9 +4,8 @@ import numpy as np
 import torch
 
 
-def train(model, optimizer, scheduler, dataloader):
+def train(model, optimizer, scheduler, dataloader, device="cuda"):
     model.train()
-    device = model.device
 
     # transforms for training
     transforms = BatchTransform.Compose(
@@ -56,9 +55,8 @@ def train(model, optimizer, scheduler, dataloader):
     return loss_acc / len(dataloader)
 
 
-def eval(model, dataloader):
+def eval(model, dataloader, device="cuda"):
     model.eval()
-    device = model.device
 
     loss_acc = 0.0
 
@@ -94,9 +92,8 @@ def eval(model, dataloader):
 
 
 # draw first predicted pcd from dataloader
-def draw(model, dataloader):
+def draw(model, dataloader, device="cuda"):
     model.eval()
-    device = model.device
 
     # get first batch
     x, y = next(iter(dataloader))
@@ -120,7 +117,7 @@ def draw(model, dataloader):
 if __name__ == "__main__":
     from model import Model
 
-    model = Model("cpu")
+    model = Model()
     x = torch.rand(6, 512, 3)
     y = torch.randint(16, size=(6, 512))
     sim, sim_reduct = model(x, torch.arange(6))

@@ -13,13 +13,13 @@ SHOW = True  # for visualization
 
 def main():
     # torch.autograd.set_detect_anomaly(True)
-    model = Model("cuda").cuda()
+    model = Model().cuda()
     # model = torch.nn.DataParallel(model).cuda()
     # model.device = 'cuda'
 
     loader_train = torch.utils.data.DataLoader(
         dataset=FracturedDataset(),
-        batch_size=64,
+        batch_size=128,
         num_workers=8,
         drop_last=False,
         shuffle=True,
@@ -27,15 +27,17 @@ def main():
     )
     loader_eval = torch.utils.data.DataLoader(
         dataset=FracturedDataset(split="test"),
-        batch_size=64,
+        batch_size=128,
         num_workers=8,
         drop_last=False,
         shuffle=False,
         pin_memory=True,
     )
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, EPOCH)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer, EPOCH // 2 + 1
+    )
 
     if LAST_EPOCH != -1:
         model.load_state_dict(torch.load(f"./params/model_{LAST_EPOCH}.pt"))
