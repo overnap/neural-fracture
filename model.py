@@ -1,10 +1,5 @@
 import torch
 import torch.nn as nn
-from pointnet2_utils import (
-    PointNetSetAbstraction,
-    PointNetSetAbstractionMsg,
-    PointNetFeaturePropagation,
-)
 
 
 class MLPBlock(nn.Module):

@@ -178,7 +178,7 @@ class PointTransformerBlock(nn.Module):
 
 
 class PointTransformerSeg(nn.Module):
-    def __init__(self, block, blocks, c=6, pcnt=512):
+    def __init__(self, block, blocks, c=4, pcnt=512):
         super().__init__()
         self.c = c
         self.pcnt = pcnt
@@ -256,7 +256,9 @@ class PointTransformerSeg(nn.Module):
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
         )
-        self.red_pt1 = nn.Sequential(
+        self.red_pt = nn.Sequential(
+            PointTransformerBlock(128, 128),
+            PointTransformerBlock(128, 128),
             PointTransformerBlock(128, 128),
             PointTransformerBlock(128, 128),
         )
@@ -264,11 +266,6 @@ class PointTransformerSeg(nn.Module):
             nn.Linear(128, 12),
             nn.BatchNorm1d(12),
             nn.ReLU(inplace=True),
-        )
-        self.red_pt2 = (
-            PointTransformerBlock(12, 12),
-            PointTransformerBlock(12, 12),
-            PointTransformerBlock(12, 12),
         )
 
     def _make_enc(self, block, planes, blocks, share_planes=8, stride=1, nsample=16):
@@ -306,8 +303,8 @@ class PointTransformerSeg(nn.Module):
             * parts.float().unsqueeze(1).unsqueeze(1)
         )
         x0 = torch.cat((input, embed), dim=2).reshape(input.shape[0] * self.pcnt, 4)
-        o0 = torch.ones((input.shape[0],)).int().to(input.device) * self.pcnt
-        print(p0)
+        o0 = torch.arange(1, input.shape[0] + 1).int().to(input.device) * self.pcnt
+
         # p0 (n, 3), x0 (n, c), o0 (b)
         p1, x1, o1 = self.enc1([p0, x0, o0])
         p2, x2, o2 = self.enc2([p1, x1, o1])
@@ -331,9 +328,8 @@ class PointTransformerSeg(nn.Module):
         # matrix reduction (BxPxP) -> (BPxP) -> (BPx12) -> (BxPx12)
         x = x.reshape(o0.shape[0] * self.pcnt, self.pcnt)
         x = self.red_mlp1(x)
-        x = self.red_pt1([p0, x, o0])
+        x = self.red_pt([p0, x, o0])[1]
         x = self.red_mlp2(x)
-        x = self.red_pt2([p0, x, o0])
         x = x.reshape(o0.shape[0], self.pcnt, 12)
 
         return sim, x
