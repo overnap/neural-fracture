@@ -24,33 +24,16 @@ def train(model, optimizer, scheduler, dataloader, device="cuda"):
         y = y.to(device)
         parts_count = y.max(dim=1)[0] + 1
 
-        x = transforms(x)
-        sim, label = model(x, parts_count)
-
-        dist = torch.cdist(sim, sim)
-        rdist = torch.cdist(label, label)
-        same = y.unsqueeze(1) == y.unsqueeze(2)
-
-        loss = torch.scalar_tensor(0.0).to(device)
-        # low-rank loss
-        loss += (
-            (same.float() - torch.einsum("bir,bjr->bij", label, label)).square().mean()
-        )
-        # similarity loss (32 = sqrt(1024) - it's near-maximum value of the distance of sim vectors)
-        loss += (
-            (dist * same) + torch.clip((~same).float() * 20.0 - (dist * ~same), min=0.0)
-        ).mean()
-        # similarity loss for reducted similarity
-        loss += (
-            (rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.0)
-        ).mean()
-
-        loss_acc += float(loss)
+        x = normalize(x)
+        output = model(x, parts_count)
+        loss = model.loss(output, y)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         scheduler.step()
+
+        loss_acc += float(loss)
 
     return loss_acc / len(dataloader)
 
@@ -66,25 +49,8 @@ def eval(model, dataloader, device="cuda"):
         parts_count = y.max(dim=1)[0] + 1
 
         x = normalize(x)
-        sim, label = model(x, parts_count)
-
-        dist = torch.cdist(sim, sim)
-        rdist = torch.cdist(label, label)
-        same = y.unsqueeze(1) == y.unsqueeze(2)
-
-        loss = torch.scalar_tensor(0.0).to(device)
-        # low-rank loss
-        loss += (
-            (same.float() - torch.einsum("bir,bjr->bij", label, label)).square().mean()
-        )
-        # similarity loss (32 = sqrt(1024) - it's near-maximum value of the distance of sim vectors)
-        loss += (
-            (dist * same) + torch.clip((~same).float() * 20.0 - (dist * ~same), min=0.0)
-        ).mean()
-        # similarity loss for reducted similarity
-        loss += (
-            (rdist * same) + torch.clip((~same).float() - (rdist * ~same), min=0.0)
-        ).mean()
+        output = model(x, parts_count)
+        loss = model.loss(output, y)
 
         loss_acc += float(loss)
 
@@ -103,15 +69,11 @@ def draw(model, dataloader, device="cuda"):
     parts_count = y.max(dim=1)[0] + 1
 
     x = normalize(x)
-    sim, label = model(x, parts_count)
-
-    same = y.unsqueeze(1) == y.unsqueeze(2)
+    output = model(x, parts_count)
 
     print(parts_count[0])
-    print(same[0])
-    print(sim[0])
-    print(torch.einsum("ir,jr->ij", label[0], label[0]))
-    print(label[0])
+    print(y[0])
+    print(output[0])
 
 
 if __name__ == "__main__":
@@ -120,6 +82,5 @@ if __name__ == "__main__":
     model = Model()
     x = torch.rand(6, 512, 3)
     y = torch.randint(16, size=(6, 512))
-    sim, sim_reduct = model(x, torch.arange(6))
-    print(sim)
-    print(sim_reduct)
+    output = model(x, torch.arange(6))
+    print(output)

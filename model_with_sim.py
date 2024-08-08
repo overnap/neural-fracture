@@ -183,14 +183,13 @@ class Model(nn.Module):
         self,
         block=PointTransformerBlock,
         blocks=[2, 3, 4, 6, 3],
-        in_feature=4,
-        point_count=512,
-        max_part_count=12,
+        c=4,
+        pcnt=512,
     ):
         super().__init__()
-        self.pcnt = point_count
-        self.mpcnt = max_part_count
-        self.in_planes, planes = in_feature, [32, 64, 128, 256, 512]
+        self.c = c
+        self.pcnt = pcnt
+        self.in_planes, planes = c, [32, 64, 128, 256, 512]
         fpn_planes, fpnhead_planes, share_planes = 128, 64, 8
         stride, nsample = [1, 4, 4, 4, 4], [8, 16, 16, 16, 16]
         self.enc1 = self._make_enc(
@@ -249,17 +248,32 @@ class Model(nn.Module):
             block, planes[0], 2, share_planes, nsample=nsample[0]
         )  # fusion p2 and p1
 
-        self.last_pt = nn.Sequential(
-            PointTransformerBlock(planes[0], planes[0]),
-            PointTransformerBlock(planes[0], planes[0]),
-            PointTransformerBlock(planes[0], planes[0]),
-            PointTransformerBlock(planes[0], planes[0]),
-        )
-        self.last_mlp = nn.Sequential(
+        self.feat = nn.Sequential(
             nn.Linear(planes[0], planes[0]),
             nn.BatchNorm1d(planes[0]),
             nn.ReLU(inplace=True),
-            nn.Linear(planes[0], max_part_count),
+            nn.Linear(planes[0], planes[0]),
+        )
+
+        self.red_mlp1 = nn.Sequential(
+            nn.Linear(self.pcnt, self.pcnt),
+            nn.BatchNorm1d(self.pcnt),
+            nn.ReLU(inplace=True),
+            nn.Linear(self.pcnt, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+        )
+        self.red_pt = nn.Sequential(
+            PointTransformerBlock(128, 128),
+            PointTransformerBlock(128, 128),
+            PointTransformerBlock(128, 128),
+            PointTransformerBlock(128, 128),
+        )
+        self.red_mlp2 = nn.Sequential(
+            nn.Linear(128, 12),
+            nn.BatchNorm1d(12),
+            nn.ReLU(inplace=True),
+            nn.Linear(12, 12),
         )
 
     def _make_enc(self, block, planes, blocks, share_planes=8, stride=1, nsample=16):
@@ -311,28 +325,39 @@ class Model(nn.Module):
         x2 = self.dec2[1:]([p2, self.dec2[0]([p2, x2, o2], [p3, x3, o3]), o2])[1]
         x1 = self.dec1[1:]([p1, self.dec1[0]([p1, x1, o1], [p2, x2, o2]), o1])[1]
 
-        x = self.last_pt([p0, x1, o0])[1]
-        x = self.last_mlp(x)
+        # get similarity matrix (BPx32) -> (BxPx32) -> (BxPxP)
+        x = self.feat(x1)
+        x = x.reshape(o0.shape[0], self.pcnt, x.shape[1])
+        x = torch.einsum("bic,bjc->bij", x, x)
+        x = torch.sigmoid(x)
 
-        # to the probability
-        x = x.reshape(o0.shape[0], self.pcnt, self.mpcnt)
-        x = torch.softmax(x, dim=2)
+        # save similarity matrix
+        sim = x
 
-        return x
+        # matrix reduction (BxPxP) -> (BPxP) -> (BPx12) -> (BxPx12)
+        x = x.reshape(o0.shape[0] * self.pcnt, self.pcnt)
+        x = self.red_mlp1(x)
+        x = self.red_pt([p0, x, o0])[1]
+        x = self.red_mlp2(x)
+        x = x.reshape(o0.shape[0], self.pcnt, 12)
+        label = torch.softmax(x, dim=2)
 
-    def loss(self, output, target, eps=1e-7):
-        # output : (BxNxL) model output means the label of each point
+        return sim, label
+
+    def loss(self, sim, label, target, alpha=1.0, eps=1e-6):
+        # sim : (BxNxN) similarity matrix
+        # label : (BxN) predicted label (without order)
         # target : (BxN) ground truth label (without order)
-        # eps : to calculate log probability
 
-        mat = torch.einsum("bic,bjc->bij", output, output)
-        mat_true = (target.unsqueeze(1) == target.unsqueeze(2)).float()
+        same = (target.unsqueeze(1) == target.unsqueeze(2)).float()
+        # same : (BxNxN) ground truth similarity matrix
 
-        loss = -(
-            mat_true * (mat + eps).log() + (1 - mat_true) * (1 - mat + eps).log()
+        group_loss = -(
+            same * (sim + eps).log() + (1 - same) * (1 - sim + eps).log()
         ).mean()
+        lr_loss = (same - torch.einsum("bir,bjr->bij", label, label)).square().mean()
 
-        return loss
+        return group_loss + alpha * lr_loss, group_loss, lr_loss
 
 
 if __name__ == "__main__":
@@ -340,4 +365,4 @@ if __name__ == "__main__":
 
     model = Model().cuda()
     xyz = torch.rand(128, 512, 3).cuda()
-    print(model(xyz, torch.randint(1, 12, (128,)).cuda()).shape)
+    print(model(xyz, torch.randint(1, 12, (128,)).cuda()))

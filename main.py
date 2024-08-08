@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 
 
-EPOCH = 100
+EPOCH = 150
 LAST_EPOCH = -1  # set -1 if you want from scratch
 SHOW = True  # for visualization
 
@@ -36,7 +36,7 @@ def main():
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer, EPOCH // 2 + 1
+        optimizer, EPOCH // 3 + 1
     )
 
     if LAST_EPOCH != -1:
@@ -52,9 +52,10 @@ def main():
         loss_train = train(model, optimizer, scheduler, loader_train)
         writer.add_scalar("loss/train", loss_train, epoch)
 
-        torch.save(model.state_dict(), f"./params/model_{epoch}.pt")
-        torch.save(optimizer.state_dict(), f"./params/optimizer_{epoch}.pt")
-        torch.save(scheduler.state_dict(), f"./params/scheduler_{epoch}.pt")
+        if epoch % 10 == 9:
+            torch.save(model.state_dict(), f"./params/model_{epoch}.pt")
+            torch.save(optimizer.state_dict(), f"./params/optimizer_{epoch}.pt")
+            torch.save(scheduler.state_dict(), f"./params/scheduler_{epoch}.pt")
 
         with torch.no_grad():
             loss_eval = eval(model, loader_eval)
