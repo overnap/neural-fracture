@@ -10,8 +10,8 @@ def train(model, optimizer, scheduler, dataloader, device="cuda"):
     # transforms for training
     transforms = BatchTransform.Compose(
         [
-            BatchTransform.RandomJitter(0.003, 0.01),
             normalize,
+            BatchTransform.RandomJitter(0.01, 0.05),
             BatchTransform.RandomRotate([1, 1, 1]),
             BatchTransform.RandomScale([0.9, 1.1]),
         ]
@@ -24,8 +24,8 @@ def train(model, optimizer, scheduler, dataloader, device="cuda"):
         y = y.to(device)
         parts_count = y.max(dim=1)[0] + 1
 
-        x = normalize(x)
-        output = model(x, parts_count)
+        x = transforms(x)
+        output = model(x, parts_count, part_noise=True)
         loss = model.loss(output, y)
 
         optimizer.zero_grad()

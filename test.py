@@ -8,32 +8,38 @@ from model import Model
 from utils import normalize
 
 
-INPUT_PARTS_COUNT = 12
+INPUT_PARTS_COUNT = 8
+POINT_COUNT = 1024
 
-mesh = Mesh()
-mesh.surftovol("teddy.obj")
-coms = mesh.getCOM()
+fs = open("./vertices_1024.obj")
+coms = []
+while True:
+    line = fs.readline()
+    if not line:
+        break
+    coms.append([float(x) for x in line[2:-1].split(" ")])
+coms = torch.tensor(coms)
 print(coms.shape)
 
-kmeans = KMeans(n_clusters=512, max_iter=1000).fit(coms)
-
-print(normalize(torch.tensor(kmeans.cluster_centers_).float().unsqueeze(0)).shape)
-
-model = Model()
+model = Model(point_count=1024).cuda()
 model.load_state_dict(
-    torch.load("./model_param_for_test.pt", map_location=torch.device("cpu"))
+    torch.load(
+        "./model_1024.pt",
+        # map_location=torch.device("cpu"),
+    )
 )
+model.eval()
 
-x = normalize(torch.tensor(kmeans.cluster_centers_).float().unsqueeze(0))
-sim, result = model(x, torch.tensor([INPUT_PARTS_COUNT]))
+x = normalize(coms.unsqueeze(0).cuda())
+y = model(x, torch.tensor([INPUT_PARTS_COUNT]).cuda())
 
-sim = sim[0]
-result = result[0]
+y = y[0].argmax(1).cpu().numpy()
+imap = {}
+result = "["
+for x in y:
+    if x not in imap.keys():
+        imap[x] = len(imap)
+    result += str(imap[x]) + ", "
+result = result[:-2] + "]"
 
-result = result.argmax(dim=1).numpy()
-
-print(sim)
 print(result)
-print(len(set(result)))
-
-mesh.mergemesh(result[kmeans.labels_])
