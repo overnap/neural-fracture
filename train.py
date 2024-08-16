@@ -26,7 +26,7 @@ def train(model, optimizer, scheduler, dataloader, device="cuda"):
 
         x = transforms(x)
         output = model(x, parts_count, part_noise=True)
-        loss = model.loss(output, y)
+        loss = model.loss(x, output, y)
 
         optimizer.zero_grad()
         loss.backward()
@@ -50,7 +50,7 @@ def eval(model, dataloader, device="cuda"):
 
         x = normalize(x)
         output = model(x, parts_count)
-        loss = model.loss(output, y)
+        loss = model.loss(x, output, y)
 
         loss_acc += float(loss)
 
@@ -73,7 +73,7 @@ def draw(model, dataloader, device="cuda"):
 
     print(parts_count[0])
     print(y[0])
-    print(output[0])
+    print(output[0].argmax(1))
 
 
 if __name__ == "__main__":

@@ -186,10 +186,12 @@ class Model(nn.Module):
         in_feature=4,
         point_count=512,
         max_part_count=12,
+        alpha=0.1,
     ):
         super().__init__()
         self.pcnt = point_count
         self.mpcnt = max_part_count
+        self.alpha = alpha
         self.in_planes, planes = in_feature, [32, 64, 128, 256, 512]
         fpn_planes, fpnhead_planes, share_planes = 128, 64, 8
         stride, nsample = [1, 4, 4, 4, 4], [8, 16, 16, 16, 16]
@@ -288,14 +290,16 @@ class Model(nn.Module):
             )
         return nn.Sequential(*layers)
 
-    def forward(self, input, parts):
+    def forward(self, input, parts, part_noise=False):
         # input (BxPx3) -> pxo [(BPx3), (BPx3+1), (B)]
         p0 = input.reshape(input.shape[0] * self.pcnt, 3)
 
-        embed = torch.normal(
-            torch.ones((input.shape[0], self.pcnt, 1)).to(input.device)
-            * parts.float().unsqueeze(1).unsqueeze(1)
-        )
+        embed = torch.ones((input.shape[0], self.pcnt, 1)).to(
+            input.device
+        ) * parts.float().unsqueeze(1).unsqueeze(1)
+        if part_noise:
+            embed = torch.normal(embed, 0.5)
+
         x0 = torch.cat((input, embed), dim=2).reshape(input.shape[0] * self.pcnt, 4)
         o0 = torch.arange(1, input.shape[0] + 1).int().to(input.device) * self.pcnt
 
@@ -320,17 +324,22 @@ class Model(nn.Module):
 
         return x
 
-    def loss(self, output, target, eps=1e-7):
+    def loss(self, input, output, target, eps=1e-7):
+        # input : (BxNx3) model input means the position of each point
         # output : (BxNxL) model output means the label of each point
         # target : (BxN) ground truth label (without order)
         # eps : to calculate log probability
 
+        dist = torch.cdist(input, input)
         mat = torch.einsum("bic,bjc->bij", output, output)
         mat_true = (target.unsqueeze(1) == target.unsqueeze(2)).float()
 
         loss = -(
-            mat_true * (mat + eps).log() + (1 - mat_true) * (1 - mat + eps).log()
+            (mat_true * (mat + eps).log() + (1 - mat_true) * (1 - mat + eps).log())
+            * (dist + eps)
         ).mean()
+
+        loss += self.alpha * mat.mean()
 
         return loss
 

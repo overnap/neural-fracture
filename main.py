@@ -6,28 +6,27 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 
 
-EPOCH = 150
+POINT_COUNT = 256
+EPOCH = 200
 LAST_EPOCH = -1  # set -1 if you want from scratch
 SHOW = True  # for visualization
 
 
 def main():
-    # torch.autograd.set_detect_anomaly(True)
-    model = Model().cuda()
+    model = Model(point_count=POINT_COUNT, alpha=0.2).cuda()
     # model = torch.nn.DataParallel(model).cuda()
-    # model.device = 'cuda'
 
     loader_train = torch.utils.data.DataLoader(
-        dataset=FracturedDataset(),
-        batch_size=128,
+        dataset=FracturedDataset(npoints=POINT_COUNT),
+        batch_size=512,
         num_workers=8,
         drop_last=False,
         shuffle=True,
         pin_memory=True,
     )
     loader_eval = torch.utils.data.DataLoader(
-        dataset=FracturedDataset(split="test"),
-        batch_size=128,
+        dataset=FracturedDataset(npoints=POINT_COUNT, split="test"),
+        batch_size=512,
         num_workers=8,
         drop_last=False,
         shuffle=False,
@@ -36,7 +35,7 @@ def main():
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer, EPOCH // 3 + 1
+        optimizer, EPOCH // 4 + 1
     )
 
     if LAST_EPOCH != -1:
